@@ -114,6 +114,12 @@
             }
 
             let pointKey = activePoint === 1 ? 'point1' : 'point2';
+            
+            // NAUJA: Patikriname, ar komanda jau kontroliuoja punktą. Jei taip - nieko nedarome.
+            if (gameState[pointKey + 'ControlledBy'] === team) {
+                return; 
+            }
+
             let now = Date.now();
             let updates = {};
 
