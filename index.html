@@ -8,15 +8,18 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; background: #222; color: white; margin: 0; padding: 20px; }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         .btn { padding: 20px 40px; font-size: 24px; margin: 10px; cursor: pointer; border: none; border-radius: 10px; color: white; font-weight: bold; width: 80%; max-width: 400px; }
         .btn-red { background-color: #d32f2f; }
         .btn-blue { background-color: #1976d2; }
         .btn-neutral { background-color: #757575; }
+        .btn-gm { background-color: #f39c12; color: black; font-size: 18px; padding: 15px 30px; }
         .card { background: #333; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .gm-card { border: 2px dashed #f39c12; }
         .time { font-size: 32px; font-weight: bold; }
         .small-time { font-size: 20px; color: #aaa; }
         select { padding: 10px; font-size: 18px; margin-bottom: 20px; }
+        input[type="number"] { padding: 5px; font-size: 18px; width: 60px; text-align: center; }
     </style>
 </head>
 <body>
@@ -27,12 +30,26 @@
             <option value="observer">Stebėtojo telefonas / Bazė</option>
             <option value="point1">Punktas 1</option>
             <option value="point2">Punktas 2</option>
+            <option value="gm">Game Master (Valdymas)</option>
         </select>
         <br>
         <button class="btn btn-neutral" onclick="startGame()">Pradėti</button>
     </div>
 
     <div id="game-screen" class="hidden">
+        
+        <div id="gm-controls" class="card gm-card hidden">
+            <h3 style="color: #f39c12;">Game Master Valdymas</h3>
+            <p>Punkto keitimosi laikas (min): <input type="number" id="input-swap" value="15"></p>
+            <p>Bendras žaidimo laikas (min): <input type="number" id="input-duration" value="120"></p>
+            <button class="btn btn-gm" onclick="resetGame()">PERKRAUTI ŽAIDIMĄ IŠ NAUJO</button>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top: 0; color: #f39c12;">Iki žaidimo pabaigos liko:</h3>
+            <div id="game-countdown" class="time" style="color: #f39c12;">--:--</div>
+        </div>
+
         <h2 id="active-point-status">Aktyvus punktas skaičiuojamas...</h2>
         <div class="card">
             <h3>Iki punkto pasikeitimo liko:</h3>
@@ -71,7 +88,7 @@
 
         let currentRole = 'observer';
         let gameState = { 
-            gameStartTime: 0, 
+            gameStartTime: 0, swapInterval: 15, gameDuration: 120,
             point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
             point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
         };
@@ -84,12 +101,16 @@
             if (currentRole === 'point1' || currentRole === 'point2') {
                 document.getElementById('point-controls').classList.remove('hidden');
             }
+            if (currentRole === 'gm') {
+                document.getElementById('gm-controls').classList.remove('hidden');
+            }
 
-            // Inicijuoti žaidimo laiką, jei dar nėra
             db.ref('game').once('value').then(snapshot => {
                 if (!snapshot.exists() || snapshot.val().gameStartTime === 0) {
                     db.ref('game').set({
                         gameStartTime: Date.now(),
+                        swapInterval: 15,
+                        gameDuration: 120,
                         point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
                         point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
                     });
@@ -105,9 +126,30 @@
             setInterval(updateDisplay, 1000);
         }
 
+        function resetGame() {
+            let confirmReset = confirm("Ar tikrai norite perkrauti žaidimą ir ištrinti visus rezultatus?");
+            if (!confirmReset) return;
+
+            let swap = parseInt(document.getElementById('input-swap').value) || 15;
+            let duration = parseInt(document.getElementById('input-duration').value) || 120;
+
+            db.ref('game').set({
+                gameStartTime: Date.now(),
+                swapInterval: swap,
+                gameDuration: duration,
+                point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
+                point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
+            });
+        }
+
         function capture(team) {
+            let gameDurationMs = (gameState.gameDuration || 120) * 60 * 1000;
+            if (Date.now() - gameState.gameStartTime >= gameDurationMs) {
+                alert("Žaidimas jau baigėsi!");
+                return;
+            }
+
             let activePoint = getActivePoint();
-            // Tikriname, ar šis įrenginys yra aktyvusis punktas
             if ((currentRole === 'point1' && activePoint !== 1) || (currentRole === 'point2' && activePoint !== 2)) {
                 alert("Šis punktas šiuo metu neaktyvus!");
                 return;
@@ -115,7 +157,6 @@
 
             let pointKey = activePoint === 1 ? 'point1' : 'point2';
             
-            // NAUJA: Patikriname, ar komanda jau kontroliuoja punktą. Jei taip - nieko nedarome.
             if (gameState[pointKey + 'ControlledBy'] === team) {
                 return; 
             }
@@ -123,7 +164,6 @@
             let now = Date.now();
             let updates = {};
 
-            // Išsaugome praėjusį laiką buvusiai komandai
             let currentControl = gameState[pointKey + 'ControlledBy'];
             if (currentControl !== 'none' && currentControl !== team) {
                 let timeHeld = now - gameState[pointKey + 'CaptureTime'];
@@ -138,49 +178,75 @@
 
         function getActivePoint() {
             let elapsed = Date.now() - gameState.gameStartTime;
-            let period = Math.floor(elapsed / (15 * 60 * 1000));
+            let intervalMs = (gameState.swapInterval || 15) * 60 * 1000;
+            let period = Math.floor(elapsed / intervalMs);
             return (period % 2) + 1;
         }
 
         function formatTime(ms) {
+            if (ms < 0) ms = 0;
             let totalSeconds = Math.floor(ms / 1000);
-            let m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            let h = Math.floor(totalSeconds / 3600);
+            let m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
             let s = (totalSeconds % 60).toString().padStart(2, '0');
-            return m + ":" + s;
+            return h > 0 ? h + ":" + m + ":" + s : m + ":" + s;
         }
 
         function updateDisplay() {
             if (gameState.gameStartTime === 0) return;
 
             let now = Date.now();
-            let elapsed = now - gameState.gameStartTime;
-            let activePoint = getActivePoint();
-            let msUntilNext = (15 * 60 * 1000) - (elapsed % (15 * 60 * 1000));
+            let gameDurationMs = (gameState.gameDuration || 120) * 60 * 1000;
+            let swapIntervalMs = (gameState.swapInterval || 15) * 60 * 1000;
+            
+            let realElapsed = now - gameState.gameStartTime;
+            let isGameOver = realElapsed >= gameDurationMs;
+            
+            // Jei žaidimas baigėsi, užfiksuojame laiką
+            let elapsed = isGameOver ? gameDurationMs : realElapsed;
+            let calcNow = isGameOver ? (gameState.gameStartTime + gameDurationMs) : now;
 
-            document.getElementById('countdown').innerText = formatTime(msUntilNext);
-            document.getElementById('active-point-status').innerText = "Aktyvus punktas: " + activePoint;
+            let gameTimeLeft = gameDurationMs - elapsed;
+            
+            if (isGameOver) {
+                document.getElementById('game-countdown').innerText = "ŽAIDIMAS BAIGTAS";
+                document.getElementById('countdown').innerText = "00:00";
+                document.getElementById('active-point-status').innerText = "Žaidimas pasibaigė";
+            } else {
+                let msUntilNext = swapIntervalMs - (elapsed % swapIntervalMs);
+                let activePoint = getActivePoint();
+                document.getElementById('game-countdown').innerText = formatTime(gameTimeLeft);
+                document.getElementById('countdown').innerText = formatTime(msUntilNext);
+                document.getElementById('active-point-status').innerText = "Aktyvus punktas: " + activePoint;
+            }
 
             let p1Red = gameState.point1RedTime;
             let p1Blue = gameState.point1BlueTime;
             let p2Red = gameState.point2RedTime;
             let p2Blue = gameState.point2BlueTime;
 
-            if (gameState.point1ControlledBy === 'red') p1Red += (now - gameState.point1CaptureTime);
-            if (gameState.point1ControlledBy === 'blue') p1Blue += (now - gameState.point1CaptureTime);
-            if (gameState.point2ControlledBy === 'red') p2Red += (now - gameState.point2CaptureTime);
-            if (gameState.point2ControlledBy === 'blue') p2Blue += (now - gameState.point2CaptureTime);
+            if (gameState.point1ControlledBy === 'red') p1Red += (calcNow - gameState.point1CaptureTime);
+            if (gameState.point1ControlledBy === 'blue') p1Blue += (calcNow - gameState.point1CaptureTime);
+            if (gameState.point2ControlledBy === 'red') p2Red += (calcNow - gameState.point2CaptureTime);
+            if (gameState.point2ControlledBy === 'blue') p2Blue += (calcNow - gameState.point2CaptureTime);
 
             document.getElementById('total-red').innerText = formatTime(p1Red + p2Red);
             document.getElementById('total-blue').innerText = formatTime(p1Blue + p2Blue);
 
-            let pointKey = activePoint === 1 ? 'point1' : 'point2';
-            let controlMap = { 'none': 'Niekas', 'red': 'RAUDONI', 'blue': 'MĖLYNI' };
-            document.getElementById('current-control').innerText = controlMap[gameState[pointKey + 'ControlledBy']];
+            // Valdymo atvaizdavimas
+            if (!isGameOver) {
+                let activePoint = getActivePoint();
+                let pointKey = activePoint === 1 ? 'point1' : 'point2';
+                let controlMap = { 'none': 'Niekas', 'red': 'RAUDONI', 'blue': 'MĖLYNI' };
+                document.getElementById('current-control').innerText = controlMap[gameState[pointKey + 'ControlledBy']];
 
-            // Paslepiame valdymo mygtukus, jei punktas neaktyvus
-            if (currentRole === 'point1' || currentRole === 'point2') {
-                let roleNum = currentRole === 'point1' ? 1 : 2;
-                document.getElementById('point-controls').style.display = (roleNum === activePoint) ? 'block' : 'none';
+                if (currentRole === 'point1' || currentRole === 'point2') {
+                    let roleNum = currentRole === 'point1' ? 1 : 2;
+                    document.getElementById('point-controls').style.display = (roleNum === activePoint) ? 'block' : 'none';
+                }
+            } else {
+                document.getElementById('current-control').innerText = "Fiksuota";
+                document.getElementById('point-controls').style.display = 'none';
             }
         }
     </script>
