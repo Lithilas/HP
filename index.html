@@ -88,7 +88,7 @@
 
         let currentRole = 'observer';
         let gameState = { 
-            gameStartTime: 0, swapInterval: 15, gameDuration: 120,
+            gameStartTime: 0, swapInterval: 15, gameDuration: 120, currentPeriod: 0,
             point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
             point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
         };
@@ -111,6 +111,7 @@
                         gameStartTime: Date.now(),
                         swapInterval: 15,
                         gameDuration: 120,
+                        currentPeriod: 0,
                         point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
                         point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
                     });
@@ -137,6 +138,7 @@
                 gameStartTime: Date.now(),
                 swapInterval: swap,
                 gameDuration: duration,
+                currentPeriod: 0,
                 point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
                 point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
             });
@@ -202,6 +204,36 @@
             let realElapsed = now - gameState.gameStartTime;
             let isGameOver = realElapsed >= gameDurationMs;
             
+            let calculatedPeriod = Math.floor(realElapsed / swapIntervalMs);
+
+            // LOGIKA: Jei pasikeitė periodas (punktas), sustabdome laiką ir nunuliname abiejų punktų kontrolę
+            if (gameState.currentPeriod !== undefined && gameState.currentPeriod < calculatedPeriod && !isGameOver) {
+                let endOfOldPeriod = gameState.gameStartTime + ((gameState.currentPeriod + 1) * swapIntervalMs);
+                let oldPointKey = (gameState.currentPeriod % 2 === 0) ? 'point1' : 'point2';
+                let newPointKey = (calculatedPeriod % 2 === 0) ? 'point1' : 'point2';
+                let currentControl = gameState[oldPointKey + 'ControlledBy'];
+
+                let updates = {};
+                updates['currentPeriod'] = calculatedPeriod;
+                
+                // Išsaugome paskutines sekundes komandai, kuri laikė punktą
+                if (currentControl !== 'none') {
+                    let timeHeld = endOfOldPeriod - gameState[oldPointKey + 'CaptureTime'];
+                    let teamKey = oldPointKey + (currentControl === 'red' ? 'RedTime' : 'BlueTime');
+                    updates[teamKey] = gameState[teamKey] + timeHeld;
+                }
+                
+                // Paverčiame abu punktus neutraliais
+                updates[oldPointKey + 'ControlledBy'] = 'none';
+                updates[oldPointKey + 'CaptureTime'] = 0;
+                
+                updates[newPointKey + 'ControlledBy'] = 'none';
+                updates[newPointKey + 'CaptureTime'] = 0;
+
+                db.ref('game').update(updates);
+                return; // Praleidžiame šį atnaujinimą, kol grįš švieži duomenys iš Firebase
+            }
+
             // Jei žaidimas baigėsi, užfiksuojame laiką
             let elapsed = isGameOver ? gameDurationMs : realElapsed;
             let calcNow = isGameOver ? (gameState.gameStartTime + gameDurationMs) : now;
