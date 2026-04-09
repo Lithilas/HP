@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airsoft Taškai</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #222; color: white; margin: 0; padding: 20px; }
+        .hidden { display: none; }
+        .btn { padding: 20px 40px; font-size: 24px; margin: 10px; cursor: pointer; border: none; border-radius: 10px; color: white; font-weight: bold; width: 80%; max-width: 400px; }
+        .btn-red { background-color: #d32f2f; }
+        .btn-blue { background-color: #1976d2; }
+        .btn-neutral { background-color: #757575; }
+        .card { background: #333; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .time { font-size: 32px; font-weight: bold; }
+        .small-time { font-size: 20px; color: #aaa; }
+        select { padding: 10px; font-size: 18px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <h2>Pasirinkite įrenginio rolę</h2>
+        <select id="role-selector">
+            <option value="observer">Stebėtojo telefonas / Bazė</option>
+            <option value="point1">Punktas 1</option>
+            <option value="point2">Punktas 2</option>
+        </select>
+        <br>
+        <button class="btn btn-neutral" onclick="startGame()">Pradėti</button>
+    </div>
+
+    <div id="game-screen" class="hidden">
+        <h2 id="active-point-status">Aktyvus punktas skaičiuojamas...</h2>
+        <div class="card">
+            <h3>Iki punkto pasikeitimo liko:</h3>
+            <div id="countdown" class="time">--:--</div>
+        </div>
+
+        <div id="point-controls" class="hidden">
+            <h3>Užimti punktą:</h3>
+            <button class="btn btn-red" onclick="capture('red')">RAUDONI</button><br>
+            <button class="btn btn-blue" onclick="capture('blue')">MĖLYNI</button>
+            <p>Dabar kontroliuoja: <span id="current-control">Niekas</span></p>
+        </div>
+
+        <div class="card">
+            <h3>Bendras komandų laikas</h3>
+            <p style="color: #ff5252; font-size: 24px;">Raudoni: <span id="total-red">00:00</span></p>
+            <p style="color: #448aff; font-size: 24px;">Mėlyni: <span id="total-blue">00:00</span></p>
+        </div>
+    </div>
+
+    <script>
+        // JŪSŲ FIREBASE KONFIGŪRACIJA
+        const firebaseConfig = {
+            apiKey: "JUSU_API_KEY",
+            authDomain: "JUSU_PROJEKTAS.firebaseapp.com",
+            databaseURL: "https://JUSU_PROJEKTAS-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "JUSU_PROJEKTAS",
+            storageBucket: "JUSU_PROJEKTAS.appspot.com",
+            messagingSenderId: "JUSU_ID",
+            appId: "JUSU_APP_ID"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentRole = 'observer';
+        let gameState = { 
+            gameStartTime: 0, 
+            point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
+            point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
+        };
+
+        function startGame() {
+            currentRole = document.getElementById('role-selector').value;
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            if (currentRole === 'point1' || currentRole === 'point2') {
+                document.getElementById('point-controls').classList.remove('hidden');
+            }
+
+            // Inicijuoti žaidimo laiką, jei dar nėra
+            db.ref('game').once('value').then(snapshot => {
+                if (!snapshot.exists() || snapshot.val().gameStartTime === 0) {
+                    db.ref('game').set({
+                        gameStartTime: Date.now(),
+                        point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
+                        point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
+                    });
+                }
+            });
+
+            db.ref('game').on('value', (snapshot) => {
+                if(snapshot.exists()) {
+                    gameState = snapshot.val();
+                }
+            });
+
+            setInterval(updateDisplay, 1000);
+        }
+
+        function capture(team) {
+            let activePoint = getActivePoint();
+            // Tikriname, ar šis įrenginys yra aktyvusis punktas
+            if ((currentRole === 'point1' && activePoint !== 1) || (currentRole === 'point2' && activePoint !== 2)) {
+                alert("Šis punktas šiuo metu neaktyvus!");
+                return;
+            }
+
+            let pointKey = activePoint === 1 ? 'point1' : 'point2';
+            let now = Date.now();
+            let updates = {};
+
+            // Išsaugome praėjusį laiką buvusiai komandai
+            let currentControl = gameState[pointKey + 'ControlledBy'];
+            if (currentControl !== 'none' && currentControl !== team) {
+                let timeHeld = now - gameState[pointKey + 'CaptureTime'];
+                updates[pointKey + (currentControl === 'red' ? 'RedTime' : 'BlueTime')] = gameState[pointKey + (currentControl === 'red' ? 'RedTime' : 'BlueTime')] + timeHeld;
+            }
+
+            updates[pointKey + 'ControlledBy'] = team;
+            updates[pointKey + 'CaptureTime'] = now;
+
+            db.ref('game').update(updates);
+        }
+
+        function getActivePoint() {
+            let elapsed = Date.now() - gameState.gameStartTime;
+            let period = Math.floor(elapsed / (15 * 60 * 1000));
+            return (period % 2) + 1;
+        }
+
+        function formatTime(ms) {
+            let totalSeconds = Math.floor(ms / 1000);
+            let m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            let s = (totalSeconds % 60).toString().padStart(2, '0');
+            return m + ":" + s;
+        }
+
+        function updateDisplay() {
+            if (gameState.gameStartTime === 0) return;
+
+            let now = Date.now();
+            let elapsed = now - gameState.gameStartTime;
+            let activePoint = getActivePoint();
+            let msUntilNext = (15 * 60 * 1000) - (elapsed % (15 * 60 * 1000));
+
+            document.getElementById('countdown').innerText = formatTime(msUntilNext);
+            document.getElementById('active-point-status').innerText = "Aktyvus punktas: " + activePoint;
+
+            let p1Red = gameState.point1RedTime;
+            let p1Blue = gameState.point1BlueTime;
+            let p2Red = gameState.point2RedTime;
+            let p2Blue = gameState.point2BlueTime;
+
+            if (gameState.point1ControlledBy === 'red') p1Red += (now - gameState.point1CaptureTime);
+            if (gameState.point1ControlledBy === 'blue') p1Blue += (now - gameState.point1CaptureTime);
+            if (gameState.point2ControlledBy === 'red') p2Red += (now - gameState.point2CaptureTime);
+            if (gameState.point2ControlledBy === 'blue') p2Blue += (now - gameState.point2CaptureTime);
+
+            document.getElementById('total-red').innerText = formatTime(p1Red + p2Red);
+            document.getElementById('total-blue').innerText = formatTime(p1Blue + p2Blue);
+
+            let pointKey = activePoint === 1 ? 'point1' : 'point2';
+            let controlMap = { 'none': 'Niekas', 'red': 'RAUDONI', 'blue': 'MĖLYNI' };
+            document.getElementById('current-control').innerText = controlMap[gameState[pointKey + 'ControlledBy']];
+
+            // Paslepiame valdymo mygtukus, jei punktas neaktyvus
+            if (currentRole === 'point1' || currentRole === 'point2') {
+                let roleNum = currentRole === 'point1' ? 1 : 2;
+                document.getElementById('point-controls').style.display = (roleNum === activePoint) ? 'block' : 'none';
+            }
+        }
+    </script>
+</body>
+</html>
