@@ -7,9 +7,13 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #222; color: white; margin: 0; padding: 20px; }
+        body { font-family: Arial, sans-serif; text-align: center; background: #222; color: white; margin: 0; padding: 20px; transition: background-color 0.5s; }
         .hidden { display: none !important; }
         .btn { padding: 20px 40px; font-size: 24px; margin: 10px; cursor: pointer; border: none; border-radius: 10px; color: white; font-weight: bold; width: 80%; max-width: 400px; }
+        
+        /* NAUJA: Dvigubai didesni fiksavimo mygtukai */
+        .btn-capture { padding: 40px 20px; font-size: 48px; width: 100%; max-width: 600px; margin: 15px auto; display: block; border-radius: 15px; }
+        
         .btn-red { background-color: #d32f2f; }
         .btn-blue { background-color: #1976d2; }
         .btn-neutral { background-color: #757575; }
@@ -32,7 +36,7 @@
             <button class="btn btn-gm" onclick="resetGame()">PERKRAUTI ŽAIDIMĄ IŠ NAUJO</button>
         </div>
 
-        <div class="card">
+        <div class="card" id="game-end-card">
             <h3 style="margin-top: 0; color: #f39c12;">Iki žaidimo pabaigos liko:</h3>
             <div id="game-countdown" class="time" style="color: #f39c12;">--:--</div>
         </div>
@@ -45,12 +49,12 @@
 
         <div id="point-controls" class="hidden">
             <h3>Užimti punktą:</h3>
-            <button class="btn btn-red" onclick="capture('red')">RAUDONI</button><br>
-            <button class="btn btn-blue" onclick="capture('blue')">MĖLYNI</button>
-            <p>Dabar kontroliuoja: <span id="current-control">Niekas</span></p>
+            <button class="btn btn-red btn-capture" onclick="capture('red')">RAUDONI</button>
+            <button class="btn btn-blue btn-capture" onclick="capture('blue')">MĖLYNI</button>
+            <p style="font-size: 20px; margin-top: 20px;">Dabar kontroliuoja: <span id="current-control" style="font-weight: bold;">Niekas</span></p>
         </div>
 
-        <div class="card">
+        <div class="card" id="total-time-card">
             <h3>Bendras komandų laikas</h3>
             <p style="color: #ff5252; font-size: 24px;">Raudoni: <span id="total-red">00:00</span></p>
             <p style="color: #448aff; font-size: 24px;">Mėlyni: <span id="total-blue">00:00</span></p>
@@ -80,11 +84,10 @@
             point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
         };
 
-        // Puslapiui užsikrovus automatiškai priskiriame rolę ir pradedame
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             const urlRole = urlParams.get('role');
-            startGame(urlRole || 'observer'); // Jei URL tuščias, priskiriama 'observer'
+            startGame(urlRole || 'observer'); 
         };
 
         function startGame(role) {
@@ -94,6 +97,9 @@
 
             if (currentRole === 'point1' || currentRole === 'point2') {
                 document.getElementById('point-controls').classList.remove('hidden');
+                // Paslepiame nereikalingą informaciją punktuose
+                document.getElementById('game-end-card').classList.add('hidden');
+                document.getElementById('total-time-card').classList.add('hidden');
             }
             if (currentRole === 'gm') {
                 document.getElementById('gm-controls').classList.remove('hidden');
@@ -136,6 +142,9 @@
                 point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
                 point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
             });
+            
+            // Atstatome fono spalvą
+            document.body.style.backgroundColor = '#222';
         }
 
         function capture(team) {
@@ -255,6 +264,7 @@
             document.getElementById('total-red').innerText = formatTime(p1Red + p2Red);
             document.getElementById('total-blue').innerText = formatTime(p1Blue + p2Blue);
 
+            // Valdymo ir fono spalvos atvaizdavimas
             if (!isGameOver) {
                 let activePoint = getActivePoint();
                 let pointKey = activePoint === 1 ? 'point1' : 'point2';
@@ -264,6 +274,16 @@
                 if (currentRole === 'point1' || currentRole === 'point2') {
                     let roleNum = currentRole === 'point1' ? 1 : 2;
                     document.getElementById('point-controls').style.display = (roleNum === activePoint) ? 'block' : 'none';
+                    
+                    // Fono spalvos keitimas pagal tai, kas kontroliuoja šį įrenginį
+                    let myControl = gameState[currentRole + 'ControlledBy'];
+                    if (myControl === 'red') {
+                        document.body.style.backgroundColor = '#660000'; // Tamsiai raudona
+                    } else if (myControl === 'blue') {
+                        document.body.style.backgroundColor = '#000066'; // Tamsiai mėlyna
+                    } else {
+                        document.body.style.backgroundColor = '#222'; // Standartinė
+                    }
                 }
             } else {
                 document.getElementById('current-control').innerText = "Fiksuota";
