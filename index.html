@@ -18,23 +18,10 @@
         .gm-card { border: 2px dashed #f39c12; }
         .time { font-size: 32px; font-weight: bold; }
         .small-time { font-size: 20px; color: #aaa; }
-        select { padding: 10px; font-size: 18px; margin-bottom: 20px; }
         input[type="number"] { padding: 5px; font-size: 18px; width: 60px; text-align: center; }
     </style>
 </head>
 <body>
-
-    <div id="setup-screen">
-        <h2>Pasirinkite įrenginio rolę</h2>
-        <select id="role-selector">
-            <option value="observer">Stebėtojo telefonas / Bazė</option>
-            <option value="point1">Punktas 1</option>
-            <option value="point2">Punktas 2</option>
-            <option value="gm">Game Master (Valdymas)</option>
-        </select>
-        <br>
-        <button class="btn btn-neutral" onclick="startGame()">Pradėti</button>
-    </div>
 
     <div id="game-screen" class="hidden">
         
@@ -93,9 +80,16 @@
             point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
         };
 
-        function startGame() {
-            currentRole = document.getElementById('role-selector').value;
-            document.getElementById('setup-screen').classList.add('hidden');
+        // Puslapiui užsikrovus automatiškai priskiriame rolę ir pradedame
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlRole = urlParams.get('role');
+            startGame(urlRole || 'observer'); // Jei URL tuščias, priskiriama 'observer'
+        };
+
+        function startGame(role) {
+            currentRole = role;
+            
             document.getElementById('game-screen').classList.remove('hidden');
 
             if (currentRole === 'point1' || currentRole === 'point2') {
@@ -206,7 +200,6 @@
             
             let calculatedPeriod = Math.floor(realElapsed / swapIntervalMs);
 
-            // LOGIKA: Jei pasikeitė periodas (punktas), sustabdome laiką ir nunuliname abiejų punktų kontrolę
             if (gameState.currentPeriod !== undefined && gameState.currentPeriod < calculatedPeriod && !isGameOver) {
                 let endOfOldPeriod = gameState.gameStartTime + ((gameState.currentPeriod + 1) * swapIntervalMs);
                 let oldPointKey = (gameState.currentPeriod % 2 === 0) ? 'point1' : 'point2';
@@ -216,14 +209,12 @@
                 let updates = {};
                 updates['currentPeriod'] = calculatedPeriod;
                 
-                // Išsaugome paskutines sekundes komandai, kuri laikė punktą
                 if (currentControl !== 'none') {
                     let timeHeld = endOfOldPeriod - gameState[oldPointKey + 'CaptureTime'];
                     let teamKey = oldPointKey + (currentControl === 'red' ? 'RedTime' : 'BlueTime');
                     updates[teamKey] = gameState[teamKey] + timeHeld;
                 }
                 
-                // Paverčiame abu punktus neutraliais
                 updates[oldPointKey + 'ControlledBy'] = 'none';
                 updates[oldPointKey + 'CaptureTime'] = 0;
                 
@@ -231,10 +222,9 @@
                 updates[newPointKey + 'CaptureTime'] = 0;
 
                 db.ref('game').update(updates);
-                return; // Praleidžiame šį atnaujinimą, kol grįš švieži duomenys iš Firebase
+                return;
             }
 
-            // Jei žaidimas baigėsi, užfiksuojame laiką
             let elapsed = isGameOver ? gameDurationMs : realElapsed;
             let calcNow = isGameOver ? (gameState.gameStartTime + gameDurationMs) : now;
 
@@ -265,7 +255,6 @@
             document.getElementById('total-red').innerText = formatTime(p1Red + p2Red);
             document.getElementById('total-blue').innerText = formatTime(p1Blue + p2Blue);
 
-            // Valdymo atvaizdavimas
             if (!isGameOver) {
                 let activePoint = getActivePoint();
                 let pointKey = activePoint === 1 ? 'point1' : 'point2';
