@@ -3,63 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Airsoft Taškai</title>
+    <meta name="theme-color" content="#F4F5F7">
+    <title>Airsoft taškai</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@600;700&display=swap">
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #222; color: white; margin: 0; padding: 20px; transition: background-color 0.5s; }
+        :root {
+            --bg: #F4F5F7; --surface: #FFFFFF; --line: #D9DCE2; --line-strong: #C3C8D1;
+            --ink: #14171C; --muted: #5B6270;
+            --red: #D92D27; --red-ink: #B3211C; --blue: #1F5FD6;
+            --tint-red: #FBE9E8; --tint-blue: #E6EEFB;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Barlow', system-ui, sans-serif; background: var(--bg); color: var(--ink); margin: 0; padding: 26px 16px 48px; font-size: 16px; line-height: 1.4; transition: background-color 0.5s; -webkit-tap-highlight-color: transparent; }
+        body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 6px; background: var(--ink); z-index: 5; transition: background-color 0.5s; }
+        /* Punkto telefono fonas pagal tai, kas jį valdo */
+        body.ctl-red { background: var(--tint-red); }
+        body.ctl-red::before { background: var(--red); }
+        body.ctl-blue { background: var(--tint-blue); }
+        body.ctl-blue::before { background: var(--blue); }
+
         .hidden { display: none !important; }
-        .btn { padding: 20px 40px; font-size: 24px; margin: 10px; cursor: pointer; border: none; border-radius: 10px; color: white; font-weight: bold; width: 80%; max-width: 400px; }
-        
-        /* NAUJA: Dvigubai didesni fiksavimo mygtukai */
-        .btn-capture { padding: 40px 20px; font-size: 48px; width: 100%; max-width: 600px; margin: 15px auto; display: block; border-radius: 15px; }
-        
-        .btn-red { background-color: #d32f2f; }
-        .btn-blue { background-color: #1976d2; }
-        .btn-neutral { background-color: #757575; }
-        .btn-gm { background-color: #f39c12; color: black; font-size: 18px; padding: 15px 30px; }
-        .card { background: #333; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .gm-card { border: 2px dashed #f39c12; }
-        .time { font-size: 32px; font-weight: bold; }
-        .small-time { font-size: 20px; color: #aaa; }
-        input[type="number"] { padding: 5px; font-size: 18px; width: 60px; text-align: center; }
+        #game-screen { max-width: 520px; margin: auto; }
+        h2 { font: 700 2.2rem/1.1 'Barlow Condensed', sans-serif; margin: 0 0 14px; }
+        h3 { font-size: 0.95rem; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+        p { margin: 0; }
+        .muted { color: var(--muted); }
+        .small { font-size: 0.85rem; }
+        #role-line { font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+        :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+        .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; margin-bottom: 14px; }
+        .time { font: 700 clamp(2rem, 9.5vw, 3.2rem)/1.05 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .time.txt { font-size: clamp(1.7rem, 8vw, 2.4rem); }
+        .strip { display: flex; gap: 12px; margin-bottom: 14px; }
+        .strip > .card { flex: 1; min-width: 0; margin-bottom: 0; }
+
+        .stat { flex: 1; min-width: 0; background: var(--bg); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; }
+        .stat .lbl { font-size: 0.85rem; color: var(--muted); font-weight: 600; display: flex; align-items: center; }
+        .stat b { font: 700 2.1rem/1.15 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; }
+        .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+
+        .btn { min-height: 56px; padding: 12px 18px; font: 600 1.05rem 'Barlow', sans-serif; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; width: 100%; transition: transform .1s; }
+        .btn:active { transform: scale(0.985); }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn-primary { background: var(--ink); border-color: var(--ink); color: #fff; margin-top: 12px; }
+        .btn-gm { border-color: var(--red); color: var(--red-ink); margin-top: 12px; }
+        .btn-danger-solid { background: var(--red); border-color: var(--red); color: #fff; }
+
+        /* Užėmimo mygtukai su laikymo žiedu */
+        .btn-capture { display: flex; align-items: center; justify-content: center; gap: 18px; min-height: 120px; margin: 12px 0; border: 0; border-radius: 18px; color: #fff; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        .btn-red { background: var(--red); }
+        .btn-blue { background: var(--blue); }
+        .btn-capture.owned { opacity: 0.55; }
+        .cap-text { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+        .cap-name { font: 700 3.2rem/1 'Barlow Condensed', sans-serif; }
+        .cap-sub { font: 600 0.95rem 'Barlow', sans-serif; margin-top: 4px; }
+        .ring { width: 56px; height: 56px; flex-shrink: 0; transform: rotate(-90deg); }
+        .ring circle { fill: none; stroke-width: 5; }
+        .ring .ring-track { stroke: rgba(255,255,255,0.3); }
+        .ring .ring-bar { stroke: #fff; stroke-linecap: round; stroke-dasharray: 125.66; stroke-dashoffset: 125.66; }
+
+        .control-line { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+        #current-control { font: 700 1.9rem 'Barlow Condensed', sans-serif; }
+
+        .warn { background: var(--ink); color: #fff; border-radius: 16px; padding: 14px 18px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; animation: pulse 1.2s infinite; }
+        .warn b { font: 700 2rem/1 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.75; } 100% { opacity: 1; } }
+        #sound-hint { margin-bottom: 12px; }
+
+        .gm-fields { display: grid; grid-template-columns: 1fr auto; gap: 10px 12px; align-items: center; }
+        input[type="number"], input[type="text"] { padding: 10px 12px; font: 600 1.15rem 'Barlow', sans-serif; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 12px; }
+        input[type="number"] { width: 96px; text-align: center; }
+        input:disabled { background: var(--bg); color: var(--muted); }
+
+        /* Rezultatas */
+        .res-head { margin-bottom: 12px; }
+        .res-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px 18px; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+        .res-row.res-title { border-top: 0; padding-top: 0; font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+        .res-row .v { font: 700 1.6rem 'Barlow Condensed', sans-serif; text-align: right; min-width: 70px; color: var(--muted); }
+        .res-row .v.win { color: var(--ink); }
+        .res-row.res-total .v { font-size: 2rem; }
+
+        /* Langai */
+        .modal { position: fixed; inset: 0; background: rgba(20,23,28,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 16px; }
+        .modal-box { background: var(--surface); padding: 24px; border-radius: 20px; width: 100%; max-width: 400px; box-shadow: 0 24px 60px rgba(20,23,28,0.3); }
+        .modal-box h3 { font: 700 1.7rem 'Barlow Condensed', sans-serif; color: var(--ink); margin: 0 0 8px; }
+        .modal-box input[type="text"] { width: 100%; margin: 10px 0 4px; }
+        .modal-row { display: flex; gap: 10px; margin-top: 14px; }
+        .modal-row .btn { margin: 0; }
+
+        #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(120px); background: var(--ink); color: #fff; padding: 14px 20px; border-radius: 12px; z-index: 10000; max-width: 90%; text-align: center; opacity: 0; transition: .3s; pointer-events: none; }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        #toast.err { background: var(--red-ink); }
+
+        @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
     </style>
 </head>
 <body>
 
     <div id="game-screen" class="hidden">
-        
-        <div id="gm-controls" class="card gm-card hidden">
-            <h3 style="color: #f39c12;">Game Master Valdymas</h3>
-            <p>Punkto keitimosi laikas (min): <input type="number" id="input-swap" value="15"></p>
-            <p>Bendras žaidimo laikas (min): <input type="number" id="input-duration" value="120"></p>
-            <button class="btn btn-gm" onclick="resetGame()">PERKRAUTI ŽAIDIMĄ IŠ NAUJO</button>
+
+        <div id="role-line"></div>
+        <h2 id="active-point-status">Jungiamasi...</h2>
+
+        <div id="swap-warning" class="warn hidden" role="status">
+            <span>Netrukus keisis aktyvus punktas</span>
+            <b id="swap-warning-time">1:00</b>
+        </div>
+        <p id="sound-hint" class="muted small hidden">Palieskite ekraną vieną kartą, kad įsijungtų garsas.</p>
+
+        <div id="gm-controls" class="card hidden">
+            <h3>Nustatymai</h3>
+            <div class="gm-fields">
+                <label for="input-swap">Punkto keitimosi laikas (min)</label>
+                <input type="number" id="input-swap" value="15" min="1">
+                <label for="input-duration">Bendras žaidimo laikas (min)</label>
+                <input type="number" id="input-duration" value="120" min="1">
+                <label for="input-hold">Užėmimo laikymas (s)</label>
+                <input type="number" id="input-hold" value="10" min="3" max="60">
+            </div>
+            <button id="btn-start" class="btn btn-primary" onclick="gmStart()">Pradėti žaidimą</button>
+            <button id="btn-reset" class="btn btn-gm hidden" onclick="gmReset()">Perkrauti žaidimą iš naujo</button>
         </div>
 
-        <div class="card" id="game-end-card">
-            <h3 style="margin-top: 0; color: #f39c12;">Iki žaidimo pabaigos liko:</h3>
-            <div id="game-countdown" class="time" style="color: #f39c12;">--:--</div>
-        </div>
-
-        <h2 id="active-point-status">Aktyvus punktas skaičiuojamas...</h2>
-        <div class="card">
-            <h3>Iki punkto pasikeitimo liko:</h3>
-            <div id="countdown" class="time">--:--</div>
+        <div class="strip">
+            <div class="card" id="game-end-card">
+                <h3>Iki žaidimo pabaigos</h3>
+                <div id="game-countdown" class="time">--:--</div>
+            </div>
+            <div class="card">
+                <h3>Iki punkto keitimo</h3>
+                <div id="countdown" class="time">--:--</div>
+            </div>
         </div>
 
         <div id="point-controls" class="hidden">
-            <h3>Užimti punktą:</h3>
-            <button class="btn btn-red btn-capture" onclick="capture('red')">RAUDONI</button>
-            <button class="btn btn-blue btn-capture" onclick="capture('blue')">MĖLYNI</button>
-            <p style="font-size: 20px; margin-top: 20px;">Dabar kontroliuoja: <span id="current-control" style="font-weight: bold;">Niekas</span></p>
+            <h3>Užimti punktą: laikykite savo komandos mygtuką</h3>
+            <button id="btn-red" class="btn btn-capture btn-red" type="button"
+                onpointerdown="holdStart('red', event)" onpointerup="holdEnd('red')" onpointercancel="holdEnd('red')" onpointerleave="holdEnd('red')"
+                onkeydown="if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) holdStart('red', event)" onkeyup="if (event.key === ' ' || event.key === 'Enter') holdEnd('red')"
+                oncontextmenu="return false">
+                <svg class="ring" viewBox="0 0 48 48" aria-hidden="true"><circle class="ring-track" cx="24" cy="24" r="20"></circle><circle class="ring-bar" id="ring-red" cx="24" cy="24" r="20"></circle></svg>
+                <span class="cap-text"><span class="cap-name">Raudoni</span><span class="cap-sub" id="sub-red">Laikykite 10 s</span></span>
+            </button>
+            <button id="btn-blue" class="btn btn-capture btn-blue" type="button"
+                onpointerdown="holdStart('blue', event)" onpointerup="holdEnd('blue')" onpointercancel="holdEnd('blue')" onpointerleave="holdEnd('blue')"
+                onkeydown="if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) holdStart('blue', event)" onkeyup="if (event.key === ' ' || event.key === 'Enter') holdEnd('blue')"
+                oncontextmenu="return false">
+                <svg class="ring" viewBox="0 0 48 48" aria-hidden="true"><circle class="ring-track" cx="24" cy="24" r="20"></circle><circle class="ring-bar" id="ring-blue" cx="24" cy="24" r="20"></circle></svg>
+                <span class="cap-text"><span class="cap-name">Mėlyni</span><span class="cap-sub" id="sub-blue">Laikykite 10 s</span></span>
+            </button>
+            <p class="control-line"><span class="muted">Dabar kontroliuoja</span> <span id="current-control">Niekas</span></p>
         </div>
 
         <div class="card" id="total-time-card">
             <h3>Bendras komandų laikas</h3>
-            <p style="color: #ff5252; font-size: 24px;">Raudoni: <span id="total-red">00:00</span></p>
-            <p style="color: #448aff; font-size: 24px;">Mėlyni: <span id="total-blue">00:00</span></p>
+            <div style="display:flex; gap:12px;">
+                <div class="stat"><span class="lbl"><i class="dot" style="background:var(--red)"></i>Raudoni</span><b id="total-red" style="color:var(--red)">00:00</b></div>
+                <div class="stat"><span class="lbl"><i class="dot" style="background:var(--blue)"></i>Mėlyni</span><b id="total-blue" style="color:var(--blue)">00:00</b></div>
+            </div>
+        </div>
+
+        <div class="card hidden" id="result-card">
+            <h3>Galutinis rezultatas</h3>
+            <div id="result-body"></div>
         </div>
     </div>
+
+    <!-- Patvirtinimo langas (gali reikalauti įrašyti žodį) -->
+    <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="cm-title">
+        <div class="modal-box">
+            <h3 id="cm-title"></h3>
+            <p id="cm-text"></p>
+            <div id="cm-typebox" class="hidden">
+                <p id="cm-hint" class="muted small" style="margin-top:12px;"></p>
+                <input type="text" id="cm-input" autocomplete="off" autocapitalize="characters" aria-label="Patvirtinimo žodis">
+            </div>
+            <div class="modal-row">
+                <button class="btn" onclick="closeConfirm()">Atšaukti</button>
+                <button id="cm-ok" class="btn btn-primary" style="margin:0;" onclick="confirmOk()">Taip</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
 
     <script>
         // JŪSŲ FIREBASE KONFIGŪRACIJA
@@ -77,115 +208,74 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        /* ======================================================================
+           DUOMENYS: game = {
+             status: 'idle' | 'running',   // žaidimas prasideda TIK kai GM paspaudžia „Pradėti“
+             gameStartTime (serverio laikas), swapInterval (min), gameDuration (min), holdSeconds,
+             point1ControlledBy, point1CaptureTime, point1RedTime, point1BlueTime, (tas pats point2)
+           }
+           Punkto keitimas NĖRA saugomas ir niekas jo nerašo: aktyvus punktas ir
+           sulaikytas laikas apskaičiuojami iš laikų. Užėmimas – duomenų bazės transakcija.
+           ====================================================================== */
+
+        const MIN = 60000;
         let currentRole = 'observer';
-        let gameState = { 
-            gameStartTime: 0, swapInterval: 15, gameDuration: 120, currentPeriod: 0,
-            point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
-            point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
-        };
+        let gameState = { status: 'idle' };
+        let gameLoaded = false;
 
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlRole = urlParams.get('role');
-            startGame(urlRole || 'observer'); 
-        };
+        /* ---------- Serverio laikas (telefonų laikrodžių skirtumai nebeturi įtakos) ---------- */
+        let serverOffset = 0, offsetReady = false;
+        const now = () => Date.now() + serverOffset;
+        db.ref('.info/serverTimeOffset').on('value', s => { serverOffset = s.val() || 0; offsetReady = true; updateDisplay(); });
 
-        function startGame(role) {
-            currentRole = role;
-            
-            document.getElementById('game-screen').classList.remove('hidden');
+        /* ---------- Laiko skaičiavimai (grynos funkcijos) ---------- */
+        function cfg(g) {
+            return { start: g.gameStartTime || 0, int: (g.swapInterval || 15) * MIN, dur: (g.gameDuration || 120) * MIN, hold: (g.holdSeconds || 10) * 1000 };
+        }
+        const gameEnd = c => c.start + c.dur;
+        const periodEnd = (c, since) => c.start + (Math.floor((since - c.start) / c.int) + 1) * c.int;
+        const heldMs = (c, since, t) => Math.max(0, Math.min(t, periodEnd(c, since), gameEnd(c)) - since);
+        const stillActive = (c, since, t) => t < periodEnd(c, since) && t < gameEnd(c);
+        const activePointAt = (c, t) => (Math.floor((t - c.start) / c.int) % 2) + 1;
 
-            if (currentRole === 'point1' || currentRole === 'point2') {
-                document.getElementById('point-controls').classList.remove('hidden');
-                // Paslepiame nereikalingą informaciją punktuose
-                document.getElementById('game-end-card').classList.add('hidden');
-                document.getElementById('total-time-card').classList.add('hidden');
-            }
-            if (currentRole === 'gm') {
-                document.getElementById('gm-controls').classList.remove('hidden');
-            }
+        // Teisinga kontrolė: tik kol tęsiasi to punkto laikotarpis
+        function validControl(g, c, n, t) {
+            const k = 'point' + n, ctl = g[k + 'ControlledBy'] || 'none';
+            if (ctl === 'none') return 'none';
+            return stillActive(c, g[k + 'CaptureTime'] || 0, t) ? ctl : 'none';
+        }
 
-            db.ref('game').once('value').then(snapshot => {
-                if (!snapshot.exists() || snapshot.val().gameStartTime === 0) {
-                    db.ref('game').set({
-                        gameStartTime: Date.now(),
-                        swapInterval: 15,
-                        gameDuration: 120,
-                        currentPeriod: 0,
-                        point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
-                        point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
-                    });
+        function computeTimes(g, t) {
+            const c = cfg(g), out = { 1: { red: 0, blue: 0 }, 2: { red: 0, blue: 0 } };
+            [1, 2].forEach(n => {
+                const k = 'point' + n;
+                let r = g[k + 'RedTime'] || 0, b = g[k + 'BlueTime'] || 0;
+                const ctl = g[k + 'ControlledBy'] || 'none';
+                if (ctl !== 'none') {
+                    const h = heldMs(c, g[k + 'CaptureTime'] || 0, t);
+                    if (ctl === 'red') r += h; else b += h;
                 }
+                out[n] = { red: r, blue: b };
             });
-
-            db.ref('game').on('value', (snapshot) => {
-                if(snapshot.exists()) {
-                    gameState = snapshot.val();
-                }
-            });
-
-            setInterval(updateDisplay, 1000);
+            return out;
         }
 
-        function resetGame() {
-            let confirmReset = confirm("Ar tikrai norite perkrauti žaidimą ir ištrinti visus rezultatus?");
-            if (!confirmReset) return;
-
-            let swap = parseInt(document.getElementById('input-swap').value) || 15;
-            let duration = parseInt(document.getElementById('input-duration').value) || 120;
-
-            db.ref('game').set({
-                gameStartTime: Date.now(),
-                swapInterval: swap,
-                gameDuration: duration,
-                currentPeriod: 0,
-                point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
-                point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
-            });
-            
-            // Atstatome fono spalvą
-            document.body.style.backgroundColor = '#222';
-        }
-
-        function capture(team) {
-            let gameDurationMs = (gameState.gameDuration || 120) * 60 * 1000;
-            if (Date.now() - gameState.gameStartTime >= gameDurationMs) {
-                alert("Žaidimas jau baigėsi!");
-                return;
+        // Užėmimas: pakeičia g ir grąžina true, arba grąžina false, jei užimti negalima
+        function applyCapture(g, n, team, t) {
+            if (g.status !== 'running') return false;
+            const c = cfg(g);
+            if (t < c.start || t >= gameEnd(c)) return false;
+            if (activePointAt(c, t) !== n) return false;
+            const k = 'point' + n;
+            const ctl = g[k + 'ControlledBy'] || 'none', since = g[k + 'CaptureTime'] || 0;
+            if (ctl !== 'none') {
+                if (stillActive(c, since, t) && ctl === team) return false;   // jau valdo
+                const f = k + (ctl === 'red' ? 'RedTime' : 'BlueTime');
+                g[f] = (g[f] || 0) + heldMs(c, since, t);                     // užfiksuojame ankstesnį laiką
             }
-
-            let activePoint = getActivePoint();
-            if ((currentRole === 'point1' && activePoint !== 1) || (currentRole === 'point2' && activePoint !== 2)) {
-                alert("Šis punktas šiuo metu neaktyvus!");
-                return;
-            }
-
-            let pointKey = activePoint === 1 ? 'point1' : 'point2';
-            
-            if (gameState[pointKey + 'ControlledBy'] === team) {
-                return; 
-            }
-
-            let now = Date.now();
-            let updates = {};
-
-            let currentControl = gameState[pointKey + 'ControlledBy'];
-            if (currentControl !== 'none' && currentControl !== team) {
-                let timeHeld = now - gameState[pointKey + 'CaptureTime'];
-                updates[pointKey + (currentControl === 'red' ? 'RedTime' : 'BlueTime')] = gameState[pointKey + (currentControl === 'red' ? 'RedTime' : 'BlueTime')] + timeHeld;
-            }
-
-            updates[pointKey + 'ControlledBy'] = team;
-            updates[pointKey + 'CaptureTime'] = now;
-
-            db.ref('game').update(updates);
-        }
-
-        function getActivePoint() {
-            let elapsed = Date.now() - gameState.gameStartTime;
-            let intervalMs = (gameState.swapInterval || 15) * 60 * 1000;
-            let period = Math.floor(elapsed / intervalMs);
-            return (period % 2) + 1;
+            g[k + 'ControlledBy'] = team;
+            g[k + 'CaptureTime'] = t;
+            return true;
         }
 
         function formatTime(ms) {
@@ -197,97 +287,369 @@
             return h > 0 ? h + ":" + m + ":" + s : m + ":" + s;
         }
 
-        function updateDisplay() {
-            if (gameState.gameStartTime === 0) return;
+        /* ---------- Pranešimai ---------- */
+        let toastTimer;
+        function toast(msg, isErr, ms) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.className = 'show' + (isErr ? ' err' : '');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { t.className = ''; }, ms || 3000);
+        }
+        function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 
-            let now = Date.now();
-            let gameDurationMs = (gameState.gameDuration || 120) * 60 * 1000;
-            let swapIntervalMs = (gameState.swapInterval || 15) * 60 * 1000;
-            
-            let realElapsed = now - gameState.gameStartTime;
-            let isGameOver = realElapsed >= gameDurationMs;
-            
-            let calculatedPeriod = Math.floor(realElapsed / swapIntervalMs);
+        /* ---------- Patvirtinimo langas ---------- */
+        let confirmState = null;
+        const normWord = s => String(s).trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        function askConfirm(o) {
+            confirmState = o;
+            document.getElementById('cm-title').innerText = o.title;
+            document.getElementById('cm-text').innerText = o.text || '';
+            const typed = !!o.typeWord;
+            document.getElementById('cm-typebox').classList.toggle('hidden', !typed);
+            document.getElementById('cm-input').value = '';
+            if (typed) document.getElementById('cm-hint').innerText = 'Įrašykite „' + o.typeWord + '“, kad patvirtintumėte:';
+            const ok = document.getElementById('cm-ok');
+            ok.innerText = o.okLabel || 'Taip';
+            ok.className = 'btn btn-primary' + (o.danger ? ' btn-danger-solid' : '');
+            ok.disabled = typed;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+            if (typed) document.getElementById('cm-input').focus();
+        }
+        document.getElementById('cm-input').addEventListener('input', () => {
+            if (confirmState && confirmState.typeWord) {
+                document.getElementById('cm-ok').disabled = normWord(document.getElementById('cm-input').value) !== normWord(confirmState.typeWord);
+            }
+        });
+        function closeConfirm() { document.getElementById('confirm-modal').classList.add('hidden'); confirmState = null; }
+        function confirmOk() {
+            const st = confirmState;
+            if (!st) return;
+            if (st.typeWord && normWord(document.getElementById('cm-input').value) !== normWord(st.typeWord)) return;
+            closeConfirm();
+            if (st.onOk) st.onOk();
+        }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeConfirm(); });
 
-            if (gameState.currentPeriod !== undefined && gameState.currentPeriod < calculatedPeriod && !isGameOver) {
-                let endOfOldPeriod = gameState.gameStartTime + ((gameState.currentPeriod + 1) * swapIntervalMs);
-                let oldPointKey = (gameState.currentPeriod % 2 === 0) ? 'point1' : 'point2';
-                let newPointKey = (calculatedPeriod % 2 === 0) ? 'point1' : 'point2';
-                let currentControl = gameState[oldPointKey + 'ControlledBy'];
+        /* ---------- Garsas ---------- */
+        let audioCtx = null;
+        function unlockAudio() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            } catch (e) {}
+        }
+        document.addEventListener('pointerdown', unlockAudio);
+        document.addEventListener('keydown', unlockAudio);
+        const audioReady = () => !!audioCtx && audioCtx.state === 'running';
+        function beep(freq, startAt, dur) {
+            if (!audioReady()) return;
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t0 = audioCtx.currentTime + startAt;
+            o.type = 'sine'; o.frequency.value = freq;
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(t0); o.stop(t0 + dur + 0.05);
+        }
+        function warnSound() { beep(880, 0, 0.25); beep(880, 0.4, 0.25); beep(1175, 0.8, 0.45); }
 
-                let updates = {};
-                updates['currentPeriod'] = calculatedPeriod;
-                
-                if (currentControl !== 'none') {
-                    let timeHeld = endOfOldPeriod - gameState[oldPointKey + 'CaptureTime'];
-                    let teamKey = oldPointKey + (currentControl === 'red' ? 'RedTime' : 'BlueTime');
-                    updates[teamKey] = gameState[teamKey] + timeHeld;
+        /* ---------- Ekranas neužmiega (punktų telefonuose) ---------- */
+        let wakeLock = null;
+        async function requestWake() {
+            if (!('wakeLock' in navigator) || wakeLock) return;
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => { wakeLock = null; });
+            } catch (e) { wakeLock = null; }
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && (currentRole === 'point1' || currentRole === 'point2')) requestWake();
+        });
+
+        /* ---------- Paleidimas ---------- */
+        window.onload = function() {
+            const urlRole = new URLSearchParams(window.location.search).get('role');
+            init(urlRole || 'observer');
+        };
+
+        function init(role) {
+            currentRole = role;
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            const roleNames = { point1: 'Punkto 1 telefonas', point2: 'Punkto 2 telefonas', gm: 'Žaidimo vedėjas', observer: 'Stebėtojas' };
+            document.getElementById('role-line').innerText = roleNames[currentRole] || roleNames.observer;
+
+            if (currentRole === 'point1' || currentRole === 'point2') {
+                document.getElementById('game-end-card').classList.add('hidden');
+                document.getElementById('total-time-card').classList.add('hidden');
+                requestWake();
+                document.addEventListener('pointerdown', requestWake);
+            }
+            if (currentRole === 'gm') {
+                document.getElementById('gm-controls').classList.remove('hidden');
+            }
+
+            // Čia nebekuriame žaidimo automatiškai – jį pradeda tik GM.
+            db.ref('game').on('value', snapshot => {
+                gameState = snapshot.exists() ? snapshot.val() : { status: 'idle' };
+                gameLoaded = true;
+                updateDisplay();
+            });
+
+            setInterval(updateDisplay, 500);
+        }
+
+        /* ---------- GM veiksmai ---------- */
+        const zeroPoints = {
+            point1ControlledBy: 'none', point1CaptureTime: 0, point1RedTime: 0, point1BlueTime: 0,
+            point2ControlledBy: 'none', point2CaptureTime: 0, point2RedTime: 0, point2BlueTime: 0
+        };
+        const clampInt = (v, def, lo, hi) => Math.min(hi, Math.max(lo, parseInt(v, 10) || def));
+
+        function gmSettings() {
+            return {
+                swapInterval: clampInt(document.getElementById('input-swap').value, 15, 1, 600),
+                gameDuration: clampInt(document.getElementById('input-duration').value, 120, 1, 1440),
+                holdSeconds: clampInt(document.getElementById('input-hold').value, 10, 3, 60)
+            };
+        }
+
+        function gmStart() {
+            if (currentRole !== 'gm') return;
+            const s = gmSettings();
+            askConfirm({
+                title: 'Pradėti žaidimą?',
+                text: 'Laikmatis prasidės iš karto visuose telefonuose. Žaidimas truks ' + s.gameDuration + ' min., punktas keisis kas ' + s.swapInterval + ' min.',
+                okLabel: 'Pradėti',
+                onOk: () => {
+                    db.ref('game').set(Object.assign({
+                        status: 'running',
+                        gameStartTime: firebase.database.ServerValue.TIMESTAMP
+                    }, s, zeroPoints)).catch(() => toast('Nepavyko pradėti žaidimo. Patikrinkite ryšį.', true));
                 }
-                
-                updates[oldPointKey + 'ControlledBy'] = 'none';
-                updates[oldPointKey + 'CaptureTime'] = 0;
-                
-                updates[newPointKey + 'ControlledBy'] = 'none';
-                updates[newPointKey + 'CaptureTime'] = 0;
+            });
+        }
 
-                db.ref('game').update(updates);
+        function gmReset() {
+            if (currentRole !== 'gm') return;
+            askConfirm({
+                title: 'Perkrauti žaidimą?',
+                text: 'Visi rezultatai bus ištrinti, o žaidimas sustabdytas. Naują žaidimą reikės paleisti iš naujo.',
+                typeWord: 'PERKRAUTI', okLabel: 'Perkrauti', danger: true,
+                onOk: () => {
+                    const g = gameState;
+                    db.ref('game').set(Object.assign({
+                        status: 'idle', gameStartTime: 0,
+                        swapInterval: g.swapInterval || 15, gameDuration: g.gameDuration || 120, holdSeconds: g.holdSeconds || 10
+                    }, zeroPoints)).then(() => {
+                        document.body.classList.remove('ctl-red', 'ctl-blue');
+                        toast('Žaidimas perkrautas.');
+                    }).catch(() => toast('Nepavyko perkrauti. Patikrinkite ryšį.', true));
+                }
+            });
+        }
+
+        let gmSynced = false;
+        function syncGmInputs(g, running) {
+            if (currentRole !== 'gm') return;
+            const fill = () => {
+                document.getElementById('input-swap').value = g.swapInterval || 15;
+                document.getElementById('input-duration').value = g.gameDuration || 120;
+                document.getElementById('input-hold').value = g.holdSeconds || 10;
+            };
+            if (running) { fill(); gmSynced = false; }
+            else if (!gmSynced) { fill(); gmSynced = true; }
+        }
+
+        /* ---------- Užėmimas: laikymas + transakcija ---------- */
+        let hold = null;   // { team, t0, raf }
+        const RING_LEN = 125.66;
+
+        function ringEl(team) { return document.getElementById('ring-' + team); }
+        function subEl(team) { return document.getElementById('sub-' + team); }
+        function holdLabel() { return 'Laikykite ' + Math.round(cfg(gameState).hold / 1000) + ' s'; }
+        function resetRing(team) { ringEl(team).style.strokeDashoffset = RING_LEN; subEl(team).innerText = holdLabel(); }
+
+        function myPoint() { return currentRole === 'point1' ? 1 : currentRole === 'point2' ? 2 : 0; }
+
+        // Ar šiuo metu galima bandyti užimti? (rodo pranešimą, jei ne)
+        function canCapture(team) {
+            const n = myPoint();
+            if (!n) return false;
+            const g = gameState, t = now(), c = cfg(g);
+            if (!offsetReady || !gameLoaded || g.status !== 'running') { toast('Žaidimas dar neprasidėjo.', true); return false; }
+            if (t >= gameEnd(c)) { toast('Žaidimas jau baigėsi.', true); return false; }
+            if (activePointAt(c, t) !== n) { toast('Šis punktas šiuo metu neaktyvus.', true); return false; }
+            if (validControl(g, c, n, t) === team) return false;   // jau valdo – nieko nedarome
+            return true;
+        }
+
+        function holdStart(team, ev) {
+            if (ev && ev.preventDefault) ev.preventDefault();
+            if (!canCapture(team)) return;
+            if (hold && hold.team === team) return;
+            if (hold) {   // kita komanda pertraukia
+                const other = hold.team;
+                cancelHold();
+                toast((other === 'red' ? 'Raudonųjų' : 'Mėlynųjų') + ' užėmimas pertrauktas!', true);
+                vibrate(80);
+            }
+            hold = { team: team, t0: performance.now(), raf: 0 };
+            vibrate(25);
+            tickHold();
+        }
+        function holdEnd(team) { if (hold && hold.team === team) cancelHold(); }
+        function cancelHold() {
+            if (!hold) return;
+            cancelAnimationFrame(hold.raf);
+            const team = hold.team;
+            hold = null;
+            resetRing(team);
+        }
+        function tickHold() {
+            if (!hold) return;
+            const total = cfg(gameState).hold;
+            const p = Math.min(1, (performance.now() - hold.t0) / total);
+            ringEl(hold.team).style.strokeDashoffset = RING_LEN * (1 - p);
+            subEl(hold.team).innerText = 'Dar ' + Math.max(1, Math.ceil(total * (1 - p) / 1000)) + ' s';
+            if (p >= 1) {
+                const team = hold.team;
+                cancelHold();
+                doCapture(team);
                 return;
             }
+            hold.raf = requestAnimationFrame(tickHold);
+        }
 
-            let elapsed = isGameOver ? gameDurationMs : realElapsed;
-            let calcNow = isGameOver ? (gameState.gameStartTime + gameDurationMs) : now;
+        function doCapture(team) {
+            const n = myPoint();
+            if (!n) return;
+            const t = now();
+            db.ref('game').transaction(g => {
+                if (g === null) return g;
+                return applyCapture(g, n, team, t) ? g : undefined;   // undefined = nutraukti
+            }, (err, committed) => {
+                if (err || !committed) {
+                    toast('Užimti nepavyko (kita komanda ar punkto keitimas ją aplenkė). Bandykite dar kartą.', true, 4000);
+                    return;
+                }
+                vibrate([200, 80, 200]);
+                toast('Punktas užimtas: ' + (team === 'red' ? 'Raudoni' : 'Mėlyni') + '!');
+            });
+        }
 
-            let gameTimeLeft = gameDurationMs - elapsed;
-            
-            if (isGameOver) {
-                document.getElementById('game-countdown').innerText = "ŽAIDIMAS BAIGTAS";
-                document.getElementById('countdown').innerText = "00:00";
-                document.getElementById('active-point-status').innerText = "Žaidimas pasibaigė";
+        /* ---------- Rodymas ---------- */
+        let warnedPeriod = -1;
+        function fireWarning() {
+            warnSound();
+            vibrate([300, 100, 300]);
+            toast('Netrukus keisis aktyvus punktas!');
+        }
+
+        function renderResult(g, t) {
+            const times = computeTimes(g, t);
+            const tr = times[1].red + times[2].red, tb = times[1].blue + times[2].blue;
+            const diff = Math.abs(tr - tb);
+            let head, color;
+            if (diff < 1000) { head = 'Lygiosios'; color = 'var(--ink)'; }
+            else if (tr > tb) { head = 'Raudoni laimėjo'; color = 'var(--red)'; }
+            else { head = 'Mėlyni laimėjo'; color = 'var(--blue)'; }
+            const cell = (a, b) => 'v' + (a > b ? ' win' : '');
+            const row = (name, a, b, cls) => '<div class="res-row ' + (cls || '') + '"><span>' + name + '</span>' +
+                '<span class="' + cell(a, b) + '">' + formatTime(a) + '</span><span class="' + cell(b, a) + '">' + formatTime(b) + '</span></div>';
+            document.getElementById('result-body').innerHTML =
+                '<h2 class="res-head" style="color:' + color + '; margin-bottom:4px;">' + head + '</h2>' +
+                '<p class="muted" style="margin-bottom:12px;">' + (diff < 1000 ? 'Abi komandos valdė punktus vienodai.' : 'Skirtumas: ' + formatTime(diff)) + '</p>' +
+                '<div class="res-row res-title"><span>Valdymo laikas</span><span class="v" style="color:var(--red-ink)">Raudoni</span><span class="v" style="color:var(--blue)">Mėlyni</span></div>' +
+                row('Punktas 1', times[1].red, times[1].blue) +
+                row('Punktas 2', times[2].red, times[2].blue) +
+                row('Iš viso', tr, tb, 'res-total');
+        }
+
+        function updateDisplay() {
+            if (!offsetReady || !gameLoaded) return;
+            const el = id => document.getElementById(id);
+            const g = gameState, t = now(), c = cfg(g);
+            const isPoint = !!myPoint();
+            const running = g.status === 'running' && c.start > 0;
+            const elapsed = Math.max(0, t - c.start);
+            const over = running && elapsed >= c.dur;
+            const live = running && !over;
+
+            // GM mygtukai ir nustatymai
+            el('btn-start').classList.toggle('hidden', running);
+            el('btn-reset').classList.toggle('hidden', !running);
+            ['input-swap', 'input-duration', 'input-hold'].forEach(id => { el(id).disabled = running; });
+            syncGmInputs(g, running);
+
+            el('game-countdown').classList.toggle('txt', over);
+
+            // Būsenos eilutė ir atgaliniai skaičiavimai
+            if (!running) {
+                el('game-countdown').innerText = '--:--';
+                el('countdown').innerText = '--:--';
+                el('active-point-status').innerText = 'Žaidimas dar neprasidėjo';
+                warnedPeriod = -1;
+            } else if (over) {
+                el('game-countdown').innerText = 'Baigta';
+                el('countdown').innerText = '00:00';
+                el('active-point-status').innerText = 'Žaidimas pasibaigė';
             } else {
-                let msUntilNext = swapIntervalMs - (elapsed % swapIntervalMs);
-                let activePoint = getActivePoint();
-                document.getElementById('game-countdown').innerText = formatTime(gameTimeLeft);
-                document.getElementById('countdown').innerText = formatTime(msUntilNext);
-                document.getElementById('active-point-status').innerText = "Aktyvus punktas: " + activePoint;
+                const msUntilNext = c.int - (elapsed % c.int);
+                el('game-countdown').innerText = formatTime(c.dur - elapsed);
+                el('countdown').innerText = formatTime(msUntilNext);
+                el('active-point-status').innerText = 'Aktyvus punktas: ' + activePointAt(c, t);
             }
 
-            let p1Red = gameState.point1RedTime;
-            let p1Blue = gameState.point1BlueTime;
-            let p2Red = gameState.point2RedTime;
-            let p2Blue = gameState.point2BlueTime;
+            // Bendri laikai
+            const times = computeTimes(g, t);
+            el('total-red').innerText = formatTime(times[1].red + times[2].red);
+            el('total-blue').innerText = formatTime(times[1].blue + times[2].blue);
 
-            if (gameState.point1ControlledBy === 'red') p1Red += (calcNow - gameState.point1CaptureTime);
-            if (gameState.point1ControlledBy === 'blue') p1Blue += (calcNow - gameState.point1CaptureTime);
-            if (gameState.point2ControlledBy === 'red') p2Red += (calcNow - gameState.point2CaptureTime);
-            if (gameState.point2ControlledBy === 'blue') p2Blue += (calcNow - gameState.point2CaptureTime);
+            // Galutinis rezultatas
+            el('result-card').classList.toggle('hidden', !over);
+            if (over) renderResult(g, t);
+            if (!isPoint) el('total-time-card').classList.toggle('hidden', over);
 
-            document.getElementById('total-red').innerText = formatTime(p1Red + p2Red);
-            document.getElementById('total-blue').innerText = formatTime(p1Blue + p2Blue);
+            // Įspėjimas prieš punkto keitimą (1 min.) su garsu
+            const msLeftInPeriod = c.int - (elapsed % c.int);
+            const period = Math.floor(elapsed / c.int);
+            const swapComing = live && (c.dur - elapsed) > msLeftInPeriod;
+            const inWarn = swapComing && msLeftInPeriod <= Math.min(MIN, c.int / 2);
+            el('swap-warning').classList.toggle('hidden', !inWarn);
+            if (inWarn) {
+                el('swap-warning-time').innerText = formatTime(msLeftInPeriod);
+                if (warnedPeriod !== period) { warnedPeriod = period; fireWarning(); }
+            }
+            el('sound-hint').classList.toggle('hidden', !(live && !audioReady()));
 
-            // Valdymo ir fono spalvos atvaizdavimas
-            if (!isGameOver) {
-                let activePoint = getActivePoint();
-                let pointKey = activePoint === 1 ? 'point1' : 'point2';
-                let controlMap = { 'none': 'Niekas', 'red': 'RAUDONI', 'blue': 'MĖLYNI' };
-                document.getElementById('current-control').innerText = controlMap[gameState[pointKey + 'ControlledBy']];
+            // Valdymas ir fonas
+            const ap = live ? activePointAt(c, t) : 0;
+            const ctlNow = live ? validControl(g, c, ap, t) : 'none';
+            const controlMap = { none: 'Niekas', red: 'Raudoni', blue: 'Mėlyni' };
+            const cc = el('current-control');
+            cc.innerText = over ? 'Fiksuota' : controlMap[ctlNow];
+            cc.style.color = ctlNow === 'red' ? 'var(--red-ink)' : ctlNow === 'blue' ? 'var(--blue)' : 'var(--muted)';
 
-                if (currentRole === 'point1' || currentRole === 'point2') {
-                    let roleNum = currentRole === 'point1' ? 1 : 2;
-                    document.getElementById('point-controls').style.display = (roleNum === activePoint) ? 'block' : 'none';
-                    
-                    // Fono spalvos keitimas pagal tai, kas kontroliuoja šį įrenginį
-                    let myControl = gameState[currentRole + 'ControlledBy'];
-                    if (myControl === 'red') {
-                        document.body.style.backgroundColor = '#660000'; // Tamsiai raudona
-                    } else if (myControl === 'blue') {
-                        document.body.style.backgroundColor = '#000066'; // Tamsiai mėlyna
-                    } else {
-                        document.body.style.backgroundColor = '#222'; // Standartinė
+            if (isPoint) {
+                const showControls = live && myPoint() === ap;
+                el('point-controls').classList.remove('hidden');
+                el('point-controls').style.display = showControls ? 'block' : 'none';
+                if (!showControls && hold) cancelHold();
+
+                const mine = live ? validControl(g, c, myPoint(), t) : 'none';
+                document.body.classList.toggle('ctl-red', mine === 'red');
+                document.body.classList.toggle('ctl-blue', mine === 'blue');
+
+                ['red', 'blue'].forEach(team => {
+                    el('btn-' + team).classList.toggle('owned', showControls && ctlNow === team);
+                    if (!(hold && hold.team === team)) {
+                        el('sub-' + team).innerText = (showControls && ctlNow === team) ? 'Valdo punktą' : holdLabel();
                     }
-                }
+                });
             } else {
-                document.getElementById('current-control').innerText = "Fiksuota";
-                document.getElementById('point-controls').style.display = 'none';
+                el('point-controls').classList.add('hidden');
             }
         }
     </script>
